@@ -1,0 +1,17 @@
+{
+  "name": "coupang-partners-site",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "쿠팡 파트너스 상품 큐레이션 정적 사이트",
+  "scripts": {
+    "fetch": "node scripts/fetch-products.mjs",
+    "sample": "node scripts/make-sample.mjs",
+    "pages": "node scripts/build-pages.mjs",
+    "build": "node scripts/fetch-products.mjs && node scripts/build-pages.mjs",
+    "serve": "node scripts/serve.mjs 5173"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}

@@ -1,0 +1,6 @@
+# 시크릿 키가 들어있다. 절대 커밋 금지.
+.env
+
+node_modules/
+.DS_Store
+Thumbs.db

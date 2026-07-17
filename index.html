@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>오늘의 특가 모음 | 쿠팡 파트너스</title>
+<meta name="description" content="쿠팡 골드박스와 카테고리 베스트 상품을 한 화면에서 빠르게 훑어보세요.">
+<meta name="theme-color" content="#0b0d12">
+
+<meta property="og:type" content="website">
+<meta property="og:title" content="오늘의 특가 모음">
+<meta property="og:description" content="쿠팡 골드박스와 베스트 상품을 한 화면에서.">
+<meta property="og:image" content="assets/og.svg">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="canonical" href="./">
+<link rel="manifest" href="site.webmanifest">
+
+<!-- 쿠팡 이미지는 여러 서브도메인(img*, image*)에 흩어져 있어 개별 preconnect 실익이 적다.
+     연결 비용만 줄이도록 공통 도메인에 DNS 프리페치만 건다. -->
+<link rel="dns-prefetch" href="https://coupangcdn.com">
+<link rel="stylesheet" href="assets/styles.css">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='26'>🛒</text></svg>">
+
+<script>
+  // 첫 페인트 전에 테마를 확정해야 흰 화면이 번쩍이지 않는다.
+  (function () {
+    try {
+      var saved = localStorage.getItem('cp:theme');
+      var dark = saved ? saved === 'dark'
+        : matchMedia('(prefers-color-scheme: dark)').matches;
+      document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+    } catch (e) {
+      document.documentElement.dataset.theme = 'light';
+    }
+  })();
+</script>
+</head>
+<body>
+
+<a class="skip" href="#grid">본문 바로가기</a>
+
+<header class="header">
+  <div class="wrap header-in">
+    <a class="brand" href="./">
+      <span class="brand-mark" aria-hidden="true">🛒</span>
+      <span class="brand-text">오늘의 <b>특가</b></span>
+    </a>
+
+    <div class="search">
+      <svg class="search-ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M11 4a7 7 0 1 1 0 14 7 7 0 0 1 0-14zm9 16-4.5-4.5"/></svg>
+      <input id="q" type="search" placeholder="상품 검색  ( / 키를 누르세요 )" autocomplete="off"
+             aria-label="상품 검색" enterkeyhint="search">
+      <button id="q-clear" class="q-clear" type="button" aria-label="검색어 지우기" hidden>&times;</button>
+    </div>
+
+    <button id="theme" class="icon-btn" type="button" aria-label="테마 전환" title="테마 전환">
+      <span class="theme-ico"></span>
+    </button>
+  </div>
+</header>
+
+<div id="notice" class="notice" hidden></div>
+
+<nav class="filters" aria-label="필터">
+  <div class="wrap">
+    <div id="chips" class="chips" role="tablist" aria-label="카테고리"></div>
+    <div class="filter-row">
+      <label class="toggle">
+        <input type="checkbox" id="rocket-only">
+        <span class="toggle-ui" aria-hidden="true"></span>
+        <span>🚀 로켓배송만</span>
+      </label>
+      <div class="spacer"></div>
+      <label class="sort">
+        <span class="sr">정렬</span>
+        <select id="sort">
+          <option value="recommended">추천순</option>
+          <option value="drop">가격 내림순</option>
+          <option value="discount">할인율 높은순</option>
+          <option value="price-asc">낮은 가격순</option>
+          <option value="price-desc">높은 가격순</option>
+          <option value="popular">많이 본 순</option>
+        </select>
+      </label>
+    </div>
+  </div>
+</nav>
+
+<main class="wrap">
+  <section id="recent-wrap" class="recent" aria-labelledby="recent-h" hidden>
+    <div class="recent-head">
+      <h2 id="recent-h" class="recent-title">최근 본 상품</h2>
+      <button id="recent-clear" class="link-btn" type="button">지우기</button>
+    </div>
+    <div id="recent" class="recent-strip"></div>
+  </section>
+
+  <div class="count-row">
+    <div id="count" class="count" aria-live="polite"></div>
+    <button id="share" class="link-btn" type="button" hidden>🔗 이 목록 공유</button>
+  </div>
+
+  <section id="grid" class="grid" aria-label="상품 목록"></section>
+
+  <div id="empty" class="empty" hidden>
+    <p class="empty-emoji" aria-hidden="true">🔍</p>
+    <p class="empty-title">조건에 맞는 상품이 없어요</p>
+    <button class="btn" type="button" id="reset">필터 초기화</button>
+  </div>
+
+  <div id="sentinel" class="sentinel" aria-hidden="true"></div>
+  <p id="end" class="end" hidden>상품을 모두 보셨습니다</p>
+</main>
+
+<button id="totop" class="totop" type="button" aria-label="맨 위로" hidden>
+  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5M5 12l7-7 7 7"/></svg>
+</button>
+
+<footer class="footer">
+  <div class="wrap">
+    <p class="disclosure">
+      이 사이트는 쿠팡 파트너스 활동의 일환으로, 이에 따른 일정액의 수수료를 제공받습니다.
+    </p>
+    <p class="footer-sub">
+      가격·재고·배송 정보는 쿠팡에서 수시로 변경되며, 실제 정보는 구매 페이지 기준입니다.
+      <span id="stamp"></span>
+    </p>
+    <p class="footer-nav"><a href="c/">카테고리별 특가 모음 →</a></p>
+  </div>
+</footer>
+
+<template id="card-tpl">
+  <a class="card" target="_blank" rel="noopener noreferrer sponsored">
+    <div class="thumb">
+      <img alt="" loading="lazy" decoding="async" width="300" height="300"
+           sizes="(max-width: 640px) 45vw, 200px">
+      <span class="badge-discount" hidden></span>
+      <span class="badge-drop" hidden></span>
+    </div>
+    <div class="body">
+      <p class="name"></p>
+      <div class="tags">
+        <span class="tag tag-rocket" hidden>🚀 로켓배송</span>
+        <span class="tag tag-free" hidden>무료배송</span>
+        <span class="tag tag-new" hidden>NEW</span>
+      </div>
+      <div class="price-row">
+        <span class="price"></span>
+        <span class="base" hidden></span>
+      </div>
+      <span class="cta">쿠팡에서 보기 <span aria-hidden="true">→</span></span>
+    </div>
+  </a>
+</template>
+
+<script src="assets/app.js" defer></script>
+</body>
+</html>

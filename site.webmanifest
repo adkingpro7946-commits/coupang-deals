@@ -1,0 +1,19 @@
+{
+  "name": "오늘의 특가 모음",
+  "short_name": "오늘의특가",
+  "description": "쿠팡 골드박스와 카테고리 베스트 상품을 한 화면에서.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#0b0d12",
+  "theme_color": "#ff3a44",
+  "lang": "ko",
+  "icons": [
+    {
+      "src": "assets/icon.svg",
+      "type": "image/svg+xml",
+      "sizes": "any",
+      "purpose": "any maskable"
+    }
+  ]
+}
