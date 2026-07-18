@@ -7,7 +7,7 @@
 import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { CoupangPartners, normalize } from './coupang.mjs';
+import { CoupangPartners, normalize, productUrlToCanonical } from './coupang.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const OUT = path.join(ROOT, 'data', 'products.json');
@@ -76,6 +76,41 @@ async function loadEnv() {
   } catch {
     // .env 없이 환경변수만 쓰는 경우도 정상
   }
+}
+
+/**
+ * 각 상품의 제휴 URL을 deeplink API로 정식 단축 링크(link.coupang.com/a/...)로 바꾼다.
+ * goldbox/search가 주는 원시 /re/AFFSDP 링크는 브라우저 클릭 시 "사용권한 없음"이 뜨는 경우가
+ * 있어서, 파트너스 링크 생성기와 동일한 단축 링크로 교체한다.
+ * 변환 실패(청크 오류 등) 시 원래 URL을 그대로 둔다.
+ */
+async function resolveDeeplinks(api, products, subId) {
+  const CHUNK = 20; // deeplink API 한도: 한 번에 20개 URL
+  const jobs = [];
+  for (const p of products) {
+    const canonical = productUrlToCanonical(p.url);
+    if (canonical) jobs.push({ product: p, canonical });
+  }
+  if (!jobs.length) return 0;
+
+  let converted = 0;
+  for (let i = 0; i < jobs.length; i += CHUNK) {
+    const slice = jobs.slice(i, i + CHUNK);
+    try {
+      const res = await api.deeplink(slice.map((j) => j.canonical), { subId });
+      const shortByUrl = new Map((res.data || []).map((d) => [d.originalUrl, d.shortenUrl]));
+      for (const j of slice) {
+        const short = shortByUrl.get(j.canonical);
+        if (short) {
+          j.product.url = short;
+          converted++;
+        }
+      }
+    } catch (err) {
+      console.error(`  딥링크 변환 실패(${i}~${i + slice.length}): ${err.message} → 원본 링크 유지`);
+    }
+  }
+  return converted;
 }
 
 async function main() {
@@ -148,6 +183,10 @@ async function main() {
 
   // productId 기준 중복 제거 (골드박스와 검색 결과가 겹칠 수 있음)
   const unique = [...new Map(all.map((p) => [p.id, p])).values()];
+
+  // 제휴 URL → 정식 단축 링크로 변환 (클릭 시 "사용권한 없음" 방지)
+  const converted = await resolveDeeplinks(api, unique, subId);
+  console.log(`딥링크 변환: ${converted}/${unique.length}개`);
 
   const now = new Date().toISOString();
   const { drops, fresh } = markPriceDrops(unique, prev, now);

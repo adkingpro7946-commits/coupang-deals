@@ -154,4 +154,25 @@ export function normalize(payload, extra = {}) {
     }));
 }
 
+/**
+ * goldbox/search API가 주는 제휴 URL(/re/AFFSDP?...)에서 정식 상품 URL을 복원한다.
+ * 이 정식 URL을 deeplink API에 넣으면 link.coupang.com/a/... 단축 링크가 나온다.
+ * pageKey(=productId)가 없으면 null (샘플/기타 URL은 변환 대상이 아님).
+ */
+export function productUrlToCanonical(url) {
+  try {
+    const u = new URL(url);
+    const pageKey = u.searchParams.get('pageKey');
+    if (!pageKey) return null;
+    const itemId = u.searchParams.get('itemId');
+    const vendorItemId = u.searchParams.get('vendorItemId');
+    const qs = [];
+    if (itemId) qs.push('itemId=' + itemId);
+    if (vendorItemId) qs.push('vendorItemId=' + vendorItemId);
+    return `https://www.coupang.com/vp/products/${pageKey}` + (qs.length ? '?' + qs.join('&') : '');
+  } catch {
+    return null;
+  }
+}
+
 export { signedDate, authorize };
