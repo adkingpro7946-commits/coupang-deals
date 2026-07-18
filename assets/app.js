@@ -367,9 +367,11 @@ function applyFilters() {
   const dropAmt = (p) => (p.priceDrop?.from > p.price ? p.priceDrop.from - p.price : 0);
 
   const by = {
-    // 실제로 값이 내려간 상품을 먼저, 그다음 할인율, 같으면 API가 준 rank 순서를 존중한다.
+    // 가격 내림 > 골드박스 특가 > (샘플용 할인율) > API rank 순.
+    // 쿠팡 API엔 할인율이 없으므로 실데이터에선 사실상 내림→골드박스→rank 다.
     recommended: (a, b) =>
       Math.sign(dropAmt(b)) - Math.sign(dropAmt(a)) ||
+      (isGold(b) ? 1 : 0) - (isGold(a) ? 1 : 0) ||
       b.discountRate - a.discountRate ||
       (a.rank || 999) - (b.rank || 999),
     drop: (a, b) => dropAmt(b) - dropAmt(a) || b.discountRate - a.discountRate,
