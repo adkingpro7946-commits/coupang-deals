@@ -66,6 +66,57 @@ function debounce(fn, ms) {
   };
 }
 
+/* ---------- 토스트 ---------- */
+let toastTimer;
+function toast(msg) {
+  let t = $('#toast');
+  if (!t) {
+    t = document.createElement('div');
+    t.id = 'toast';
+    t.className = 'toast';
+    document.body.appendChild(t);
+  }
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => t.classList.remove('show'), 2400);
+}
+
+/* ---------- 공유 (커뮤니티/SNS 나르기) ----------
+ * 상품명·가격·가격내림·로켓 + 제휴 링크 + 필수 고지문을 한 번에 복사한다.
+ * 고지문을 자동으로 넣어 파트너스 정책 위반(고지 누락)을 막는다.
+ */
+function shareText(p) {
+  const lines = [p.name];
+  let priceLine = `💰 ${fmt(p.price)}`;
+  if (isDrop(p)) priceLine += `  (↓ ${won.format(p.priceDrop.from - p.price)}원 내림!)`;
+  lines.push(priceLine);
+  if (p.rocket) lines.push('🚀 로켓배송');
+  lines.push('👉 ' + p.url);
+  lines.push('');
+  lines.push('※ 쿠팡 파트너스 활동의 일환으로, 이에 따른 일정액의 수수료를 제공받습니다.');
+  return lines.join('\n');
+}
+
+async function shareProduct(p) {
+  const text = shareText(p);
+  // 모바일은 네이티브 공유(카톡 등)를, 데스크톱은 클립보드 복사를 쓴다.
+  if (navigator.share && /Android|iPhone|iPad|iPod/i.test(navigator.userAgent)) {
+    try {
+      await navigator.share({ text });
+      return;
+    } catch {
+      // 사용자가 취소하면 조용히 클립보드로 폴백
+    }
+  }
+  try {
+    await navigator.clipboard.writeText(text);
+    toast('복사됐어요! 커뮤니티·채팅에 붙여넣기 하세요 📋');
+  } catch {
+    toast('복사가 막혔어요. 길게 눌러 직접 복사해 주세요.');
+  }
+}
+
 /**
  * 쿠팡 썸네일 URL은 경로에 크기가 박혀 있다(.../remote/212x212ex/image/...).
  * 그 숫자만 갈아끼워 해상도별 후보를 만든다. 형식이 다르면 건드리지 않는다.
@@ -554,6 +605,16 @@ function initEvents() {
     if (a) recordClick(a.dataset.id);
   });
 
+  // 공유 버튼 (카드 이동보다 먼저 가로챈다)
+  grid.addEventListener('click', (e) => {
+    const btn = e.target.closest('.share-btn');
+    if (!btn) return;
+    e.preventDefault();
+    const card = btn.closest('.card-wrap')?.querySelector('.card');
+    const p = card && state.byId?.get(card.dataset.id);
+    if (p) shareProduct(p);
+  });
+
   // 카드 클릭 위임. preventDefault를 하지 않으므로 이동은 브라우저에 맡긴다.
   grid.addEventListener('click', (e) => {
     const card = e.target.closest('.card');
@@ -694,6 +755,7 @@ async function main() {
   }
 
   state.all = data.products || [];
+  state.byId = new Map(state.all.map((p) => [p.id, p]));
 
   if (data.sample) {
     const n = $('#notice');

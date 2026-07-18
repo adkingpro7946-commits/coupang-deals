@@ -369,13 +369,50 @@ body {
 
 .tag-new { color: #0aa06e; background: color-mix(in srgb, #0aa06e 14%, transparent); }
 
-/* 골드박스 = 쿠팡이 직접 고른 오늘의 특가 */
+/* 골드박스 = 쿠팡이 직접 고른 오늘의 특가.
+   실데이터엔 discountRate가 없어 badge-discount와 겹치지 않으므로 좌상단 공유. */
 .badge-gold {
-  position: absolute; top: 8px; right: 8px;
+  position: absolute; top: 8px; left: 8px;
   background: linear-gradient(135deg, #f7b733, #e8890c);
   color: #fff; font-weight: 800; font-size: 11px;
   padding: 3px 8px; border-radius: 7px;
   box-shadow: 0 2px 8px rgba(232, 137, 12, .4);
+}
+
+/* ---------- 공유 버튼 (커뮤니티/SNS 나르기용) ---------- */
+.card-wrap { position: relative; display: flex; }
+.card-wrap > .card { flex: 1; min-width: 0; }
+
+.share-btn {
+  position: absolute; top: 8px; right: 8px; z-index: 3;
+  border: 0; border-radius: 8px;
+  background: rgba(0, 0, 0, .62); color: #fff;
+  font-size: 11px; font-weight: 700; font-family: inherit;
+  padding: 5px 9px; cursor: pointer;
+  opacity: 0; transform: translateY(-2px);
+  transition: opacity .15s, transform .15s, background .15s;
+}
+.card-wrap:hover .share-btn,
+.share-btn:focus-visible { opacity: 1; transform: none; }
+.share-btn:hover { background: var(--brand); }
+
+/* 토스트 알림 */
+.toast {
+  position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%) translateY(20px);
+  z-index: 200;
+  background: #12151b; color: #fff;
+  padding: 12px 20px; border-radius: 12px;
+  font-size: 13.5px; font-weight: 600;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, .35);
+  opacity: 0; pointer-events: none;
+  transition: opacity .2s, transform .2s;
+  max-width: 90vw; text-align: center;
+}
+.toast.show { opacity: 1; transform: translateX(-50%); }
+:root[data-theme="dark"] .toast { background: #2a2f3a; }
+
+@media (max-width: 640px) {
+  .share-btn { opacity: 1; transform: none; padding: 6px 10px; }
 }
 
 .body { padding: 11px 12px 12px; display: flex; flex-direction: column; gap: 7px; flex: 1; }
