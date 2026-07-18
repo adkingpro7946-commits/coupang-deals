@@ -82,7 +82,19 @@ async function main() {
   await loadEnv();
 
   const subId = process.env.COUPANG_SUB_ID || undefined;
-  const keywords = arg('keywords').split(',').map((s) => s.trim()).filter(Boolean);
+
+  // 키워드는 --keywords 인수로 받되, 없으면 scripts/keywords.txt(UTF-8)를 읽는다.
+  // 윈도우에서 한글 인수는 인코딩이 깨지므로, 자동 실행 때는 파일 경로가 안전하다.
+  let keywords = arg('keywords').split(',').map((s) => s.trim()).filter(Boolean);
+  if (!keywords.length) {
+    try {
+      const raw = await fs.readFile(path.join(ROOT, 'scripts', 'keywords.txt'), 'utf8');
+      keywords = raw.split(/[\n,]/).map((s) => s.trim()).filter((s) => s && !s.startsWith('#'));
+    } catch {
+      // 파일 없으면 골드박스만 수집
+    }
+  }
+
   const bestCategories = arg('best').split(',').map((s) => s.trim()).filter(Boolean);
 
   // 덮어쓰기 전에 읽어야 가격 비교가 가능하다.
