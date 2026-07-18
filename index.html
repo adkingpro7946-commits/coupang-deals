@@ -61,6 +61,23 @@
 
 <div id="notice" class="notice" hidden></div>
 
+<section class="hero">
+  <div class="wrap hero-in">
+    <h1 class="hero-title">매일 바뀌는 <b>쿠팡 특가</b>만 골라 담았어요</h1>
+    <p class="hero-sub">골드박스 · 카테고리 베스트 · 방금 <b>가격 내린</b> 상품까지 한 화면에. 검색 말고 <b>구경</b>하세요.</p>
+    <div id="hero-stats" class="hero-stats" aria-live="polite"></div>
+  </div>
+  <div class="wrap">
+    <div id="spotlight-wrap" class="spotlight-wrap" hidden>
+      <div class="spotlight-head">
+        <h2 class="spotlight-title">🔥 지금 놓치면 아까운 특가</h2>
+        <span class="spotlight-hint">옆으로 넘겨보세요 →</span>
+      </div>
+      <div id="spotlight" class="spotlight"></div>
+    </div>
+  </div>
+</section>
+
 <nav class="filters" aria-label="필터">
   <div class="wrap">
     <div id="chips" class="chips" role="tablist" aria-label="카테고리"></div>
@@ -76,7 +93,6 @@
         <select id="sort">
           <option value="recommended">추천순</option>
           <option value="drop">가격 내림순</option>
-          <option value="discount">할인율 높은순</option>
           <option value="price-asc">낮은 가격순</option>
           <option value="price-desc">높은 가격순</option>
           <option value="popular">많이 본 순</option>
@@ -135,6 +151,7 @@
       <img alt="" loading="lazy" decoding="async" width="300" height="300"
            sizes="(max-width: 640px) 45vw, 200px">
       <span class="badge-discount" hidden></span>
+      <span class="badge-gold" hidden>골드박스</span>
       <span class="badge-drop" hidden></span>
     </div>
     <div class="body">

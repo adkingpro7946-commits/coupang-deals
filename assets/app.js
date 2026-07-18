@@ -12,6 +12,8 @@ const state = {
   q: '',
   category: '전체',
   rocketOnly: false,
+  onlyDrops: false,
+  onlyGold: false,
   sort: 'recommended',
   clicks: readClicks(),
   recent: readJSON(RECENT_KEY, []),
@@ -122,6 +124,8 @@ function readURL() {
   state.q = p.get('q') || '';
   state.category = p.get('cat') || '전체';
   state.rocketOnly = p.get('rocket') === '1';
+  state.onlyDrops = p.get('drops') === '1';
+  state.onlyGold = p.get('gold') === '1';
   state.sort = p.get('sort') || 'recommended';
 }
 
@@ -130,6 +134,8 @@ function writeURL() {
   if (state.q) p.set('q', state.q);
   if (state.category !== '전체') p.set('cat', state.category);
   if (state.rocketOnly) p.set('rocket', '1');
+  if (state.onlyDrops) p.set('drops', '1');
+  if (state.onlyGold) p.set('gold', '1');
   if (state.sort !== 'recommended') p.set('sort', state.sort);
 
   const qs = p.toString();
@@ -183,6 +189,164 @@ function initTheme() {
   });
 }
 
+/* ---------- 히어로 (베스트 특가) ----------
+ * "왜 쿠팡 대신 여기?" 에 대한 답. 큰 할인·가격 인하를 첫 화면에서 바로 보여준다.
+ */
+const isDrop = (p) => p.priceDrop?.from > p.price;
+const isGold = (p) => p.source === 'goldbox';
+
+function scrollToGrid() {
+  const nav = $('.filters');
+  const y = (nav ? nav.getBoundingClientRect().top + scrollY : 0) - 56;
+  scrollTo({ top: Math.max(0, y), behavior: 'smooth' });
+}
+
+function renderStats(items) {
+  // 쿠팡 API는 할인율/정가를 주지 않는다. 실제로 가진 신호만 쓴다:
+  // 골드박스(쿠팡이 고른 특가) · 가격 내림(직접 추적) · 로켓배송.
+  const gold = items.filter(isGold).length;
+  const drops = items.filter(isDrop).length;
+  const rocket = items.filter((p) => p.rocket).length;
+
+  const tiles = [
+    gold > 0 && { label: '골드박스 특가', num: `${won.format(gold)}개`, cls: 'gold', action: 'gold' },
+    drops > 0 && { label: '방금 가격 내림', num: `${won.format(drops)}개`, cls: 'drop', action: 'drops' },
+    { label: '🚀 로켓배송', num: `${won.format(rocket)}개`, action: 'rocket' },
+    { label: '전체 상품', num: `${won.format(items.length)}개` },
+  ].filter(Boolean);
+
+  const box = $('#hero-stats');
+  box.replaceChildren();
+  for (const t of tiles) {
+    const el = document.createElement(t.action ? 'button' : 'div');
+    el.className = 'stat' + (t.action ? ' clickable' : '');
+    if (t.action) {
+      el.type = 'button';
+      el.dataset.action = t.action;
+    }
+    const num = document.createElement('span');
+    num.className = 'stat-num' + (t.cls ? ' ' + t.cls : '');
+    num.textContent = t.num;
+    const label = document.createElement('span');
+    label.className = 'stat-label';
+    label.textContent = t.label;
+    el.append(num, label);
+
+    if (t.action === 'gold') {
+      el.addEventListener('click', () => { state.onlyGold = !state.onlyGold; syncUI(); applyFilters(); scrollToGrid(); });
+    } else if (t.action === 'drops') {
+      el.addEventListener('click', () => {
+        state.onlyDrops = !state.onlyDrops;
+        if (state.onlyDrops) state.sort = 'drop';
+        syncUI();
+        applyFilters();
+        scrollToGrid();
+      });
+    } else if (t.action === 'rocket') {
+      el.addEventListener('click', () => { state.rocketOnly = !state.rocketOnly; syncUI(); applyFilters(); scrollToGrid(); });
+    }
+    box.appendChild(el);
+  }
+  updateHeroActive();
+}
+
+function updateHeroActive() {
+  $('#hero-stats')?.querySelectorAll('.stat[data-action]').forEach((el) => {
+    const a = el.dataset.action;
+    const on =
+      (a === 'gold' && state.onlyGold) ||
+      (a === 'drops' && state.onlyDrops) ||
+      (a === 'rocket' && state.rocketOnly);
+    el.classList.toggle('active', on);
+  });
+}
+
+function renderSpotlight(items) {
+  const wrap = $('#spotlight-wrap');
+  const box = $('#spotlight');
+
+  // 가격 내림을 최우선, 그다음 골드박스(쿠팡이 고른 특가, rank 낮을수록 상위). 이미지 없는 건 제외.
+  const score = (p) =>
+    (isDrop(p) ? 2000 + (p.priceDrop.pct || 0) : 0) +
+    (isGold(p) ? 1000 - Math.min(p.rank || 999, 999) : 0);
+  const picks = items
+    .filter((p) => p.image && (isDrop(p) || isGold(p)))
+    .sort((a, b) => score(b) - score(a))
+    .slice(0, 12);
+
+  if (!picks.length) {
+    wrap.hidden = true;
+    return;
+  }
+
+  const frag = document.createDocumentFragment();
+  for (const p of picks) {
+    const a = document.createElement('a');
+    a.className = 'spot';
+    a.href = p.url;
+    a.target = '_blank';
+    a.rel = 'noopener noreferrer sponsored';
+    a.dataset.id = p.id;
+
+    const thumb = document.createElement('div');
+    thumb.className = 'spot-thumb';
+    const img = document.createElement('img');
+    img.src = p.image;
+    img.alt = '';
+    // 스포트라이트는 첫 화면(above the fold)이라 즉시 로드해 LCP를 앞당긴다.
+    img.loading = 'eager';
+    img.decoding = 'async';
+    const ss = srcsetFor(p.image);
+    if (ss) img.srcset = ss;
+    img.addEventListener('error', () => { img.style.display = 'none'; }, { once: true });
+
+    const badges = document.createElement('div');
+    badges.className = 'spot-badges';
+    if (isDrop(p)) {
+      const d = document.createElement('span');
+      d.className = 'spot-drop';
+      d.textContent = `↓ ${won.format(p.priceDrop.from - p.price)}원`;
+      badges.appendChild(d);
+    }
+    if (isGold(p)) {
+      const g = document.createElement('span');
+      g.className = 'spot-gold';
+      g.textContent = '골드박스';
+      badges.appendChild(g);
+    }
+    thumb.append(img, badges);
+
+    const body = document.createElement('div');
+    body.className = 'spot-body';
+    const name = document.createElement('p');
+    name.className = 'spot-name';
+    name.textContent = p.name;
+    const price = document.createElement('div');
+    price.className = 'spot-price';
+    const now = document.createElement('span');
+    now.className = 'spot-now';
+    now.textContent = fmt(p.price);
+    price.appendChild(now);
+    if (p.basePrice > p.price) {
+      const was = document.createElement('span');
+      was.className = 'spot-was';
+      was.textContent = fmt(p.basePrice);
+      price.appendChild(was);
+    }
+    body.append(name, price);
+
+    a.append(thumb, body);
+    frag.appendChild(a);
+  }
+  box.replaceChildren(frag);
+  wrap.hidden = false;
+}
+
+function renderHero() {
+  renderStats(state.all);
+  renderSpotlight(state.all);
+}
+
 /* ---------- 필터 + 정렬 ---------- */
 function applyFilters() {
   const q = state.q.trim().toLowerCase();
@@ -190,6 +354,8 @@ function applyFilters() {
 
   let rows = state.all.filter((p) => {
     if (state.rocketOnly && !p.rocket) return false;
+    if (state.onlyDrops && !isDrop(p)) return false;
+    if (state.onlyGold && !isGold(p)) return false;
     if (state.category !== '전체' && p.category !== state.category) return false;
     if (terms.length) {
       const hay = (p.name + ' ' + p.category).toLowerCase();
@@ -227,6 +393,7 @@ function applyFilters() {
     : '';
 
   writeURL();
+  updateHeroActive();
   renderMore();
   state.pump?.(); // 첫 페이지로 화면이 안 차면 이어서 채운다
 }
@@ -283,6 +450,7 @@ function renderMore() {
       d.textContent = `↓ ${won.format(p.priceDrop.from - p.price)}원 내림`;
       d.hidden = false;
     }
+    if (isGold(p)) node.querySelector('.badge-gold').hidden = false;
     if (p.rocket) node.querySelector('.tag-rocket').hidden = false;
     if (p.freeShipping) node.querySelector('.tag-free').hidden = false;
     if (p.isNew) node.querySelector('.tag-new').hidden = false;
@@ -371,9 +539,17 @@ function initEvents() {
     state.q = '';
     state.category = '전체';
     state.rocketOnly = false;
+    state.onlyDrops = false;
+    state.onlyGold = false;
     state.sort = 'recommended';
     syncUI();
     applyFilters();
+  });
+
+  // 스포트라이트 카드 클릭도 그리드 카드와 동일하게 기록
+  $('#spotlight').addEventListener('click', (e) => {
+    const a = e.target.closest('.spot');
+    if (a) recordClick(a.dataset.id);
   });
 
   // 카드 클릭 위임. preventDefault를 하지 않으므로 이동은 브라우저에 맡긴다.
@@ -534,7 +710,8 @@ async function main() {
   buildChips();   // 칩이 선택 상태로 그려지고
   initEvents();
   syncUI();       // 위젯도 같은 상태로 맞춘 뒤
-  applyFilters(); // 렌더한다
+  renderHero();   // 히어로(통계·스포트라이트)를 채우고
+  applyFilters(); // 그리드를 렌더한다
   renderRecent();
   injectJsonLd(state.all);
 }
