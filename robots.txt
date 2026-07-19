@@ -1,7 +1,7 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://adkingpro7946-commits.github.io/coupang-deals/sitemap.xml
+Sitemap: https://kkuldeal.com/sitemap.xml
 
 # 필터 조합은 같은 상품 목록의 변형일 뿐이라 색인시킬 가치가 없다.
 Disallow: /?q=
