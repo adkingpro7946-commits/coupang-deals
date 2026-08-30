@@ -36,7 +36,7 @@ if ($LASTEXITCODE -ne 0) { Log 'fetch failed -> abort (site keeps existing data)
 if ($LASTEXITCODE -ne 0) { Log 'build-pages failed -> abort'; exit 1 }
 
 # 3. Commit only if something changed.
-git add data c sitemap.xml 2>&1 | Out-Null
+git add data c info sitemap.xml 2>&1 | Out-Null
 git diff --cached --quiet
 if ($LASTEXITCODE -eq 0) { Log 'no changes -> skip push'; exit 0 }
 

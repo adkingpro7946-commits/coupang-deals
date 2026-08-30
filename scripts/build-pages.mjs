@@ -55,6 +55,18 @@ const THEME_BOOT = `<script>
 const DISCLOSURE =
   '이 사이트는 쿠팡 파트너스 활동의 일환으로, 이에 따른 일정액의 수수료를 제공받습니다.';
 
+// 모든 정적 페이지가 공유하는 하단 링크 (절대 URL이라 깊이 상관없이 동작)
+const FOOTER_NAV = `<nav class="footer-links" aria-label="사이트 정보">
+    <a href="${BASE}/">홈</a>
+    <a href="${BASE}/c/">카테고리</a>
+    <a href="${BASE}/info/about.html">소개</a>
+    <a href="${BASE}/info/criteria.html">특가 선정·가격 기준</a>
+    <a href="${BASE}/info/partners.html">제휴 안내</a>
+    <a href="${BASE}/info/contact.html">문의·신고</a>
+    <a href="${BASE}/info/terms.html">이용약관</a>
+    <a href="${BASE}/info/privacy.html">개인정보처리방침</a>
+  </nav>`;
+
 function cardHtml(p) {
   const discount = p.discountRate > 0 ? `<span class="badge-discount">${p.discountRate}%</span>` : '';
   const drop =
@@ -116,6 +128,7 @@ ${body}
   <div class="wrap">
     <p class="disclosure">${DISCLOSURE}</p>
     <p class="footer-sub">가격·재고·배송 정보는 쿠팡에서 수시로 변경되며, 실제 정보는 구매 페이지 기준입니다.</p>
+    ${FOOTER_NAV}
   </div>
 </footer>
 </body>
@@ -217,12 +230,143 @@ function hubPage(byCat) {
   return pageShell({ title, description, canonical, jsonLd, body, assetPrefix: '../' });
 }
 
+// ── 신뢰 페이지 (소개·기준·제휴·문의·약관·개인정보) ──
+// 실제 근거 있는 내용만. 문의 이메일은 CONTACT_EMAIL 환경변수로 넣으면 노출된다(없으면 안내 문구).
+const CONTACT_EMAIL = process.env.CONTACT_EMAIL || '';
+const contactLine = CONTACT_EMAIL
+  ? `<p>이메일: <a href="mailto:${esc(CONTACT_EMAIL)}">${esc(CONTACT_EMAIL)}</a></p>`
+  : `<p class="muted">문의 이메일은 운영자 설정 후 표시됩니다. (빌드 시 <code>CONTACT_EMAIL</code> 환경변수)</p>`;
+
+const INFO_PAGES = [
+  {
+    slug: 'about',
+    title: '꿀딜 소개',
+    desc: '꿀딜은 쿠팡 골드박스와 최근 가격이 내려간 상품을 모아 보여주는 독립 큐레이션 사이트입니다.',
+    body: `<h1>꿀딜 소개</h1>
+<p><strong>꿀딜(kkuldeal.com)</strong>은 쿠팡의 골드박스 특가와 최근 가격이 내려간 상품을 카테고리별로 모아 보여주는 <strong>독립 상품 큐레이션 사이트</strong>입니다.</p>
+<p>쿠팡에 바로 들어가기 전에, <strong>지금 가격이 얼마인지 · 언제 확인한 가격인지 · 이전보다 얼마나 내렸는지</strong>를 먼저 비교하고 판단하도록 돕는 것이 목적입니다.</p>
+<h2>이렇게 사용하세요</h2>
+<ul>
+  <li>가격이 실제로 얼마나 내려갔는지 확인</li>
+  <li>언제 확인한 가격인지 확인</li>
+  <li>카테고리·필터·정렬로 원하는 상품 비교</li>
+  <li>마지막으로 쿠팡에서 현재 가격을 최종 확인</li>
+</ul>
+<h2>운영</h2>
+<p>꿀딜은 개인이 운영하는 독립 사이트이며, <strong>쿠팡이 직접 운영하는 공식 사이트가 아닙니다.</strong> 상품으로는 쿠팡 파트너스 제휴 링크를 통해 연결됩니다. 문의는 <a href="${BASE}/info/contact.html">문의·신고</a> 페이지를 이용해 주세요.</p>`,
+  },
+  {
+    slug: 'criteria',
+    title: '특가 선정 · 가격 기준',
+    desc: '꿀딜이 특가를 선정하는 기준과 가격 인하를 계산·표시하는 방식을 안내합니다.',
+    body: `<h1>특가 선정 · 가격 기준</h1>
+<h2>특가 선정 기준</h2>
+<p>꿀딜은 최근 확인 가격과 현재 가격을 비교하여 <strong>가격이 의미 있게 내려간 상품</strong>, <strong>쿠팡 골드박스 상품</strong>, <strong>카테고리 내 관심도가 높은 상품</strong>을 선별합니다.</p>
+<h2>가격 인하 계산 기준</h2>
+<p>이전 확인가와 현재 확인가를 비교해 인하액과 인하율을 계산합니다. 의미 없는 소액 변동은 강조하지 않습니다.</p>
+<ul>
+  <li><strong>가격 인하 배지</strong>: 인하율 3% 이상 <em>또는</em> 인하액 1,000원 이상</li>
+  <li><strong>메인 특가 노출</strong>: 인하율 5% 이상 <em>또는</em> 인하액 3,000원 이상</li>
+  <li>가격이 오른 상품은 특가 영역에서 자동 제외</li>
+</ul>
+<h2>가격 업데이트 정책</h2>
+<p>상품 가격은 매일 자동으로 다시 확인합니다. 각 상품에는 <strong>마지막으로 확인한 시각</strong>을 표시하며, 오랫동안(약 14일) 다시 확인되지 않은 상품은 목록에서 제외합니다.</p>
+<h2>구매 전 확인</h2>
+<p>가격·재고·쿠폰·배송 조건은 수시로 변하며, <strong>쿠폰·옵션·회원 조건에 따라 최종 결제 금액이 달라질 수 있습니다.</strong> 구매 전 반드시 쿠팡 상품 페이지에서 최종 확인해 주세요.</p>`,
+  },
+  {
+    slug: 'partners',
+    title: '쿠팡 파트너스 제휴 안내',
+    desc: '꿀딜의 쿠팡 파트너스 제휴 방식과 수수료 구조를 안내합니다.',
+    body: `<h1>쿠팡 파트너스 제휴 안내</h1>
+<p>이 사이트는 쿠팡 파트너스 활동의 일환으로, 방문자가 링크를 통해 구매할 경우 <strong>일정액의 수수료를 제공받습니다.</strong></p>
+<ul>
+  <li>이 수수료는 <strong>쿠팡이 지급</strong>하며, 방문자가 지불하는 <strong>상품 가격에는 영향을 주지 않습니다.</strong></li>
+  <li>꿀딜은 쿠팡이 직접 운영하는 공식 사이트가 아닌 <strong>독립 큐레이션 사이트</strong>입니다.</li>
+  <li>쿠팡으로 이동하는 링크에는 <code>rel="sponsored"</code>가 적용되어 있습니다.</li>
+  <li>사용자가 직접 누르지 않는 한 <strong>자동으로 쿠팡으로 이동하지 않습니다.</strong></li>
+</ul>`,
+  },
+  {
+    slug: 'contact',
+    title: '문의 · 신고',
+    desc: '잘못된 가격, 품절, 링크 오류 신고 및 기타 문의 안내입니다.',
+    body: `<h1>문의 · 신고</h1>
+<p>상품 정보 오류나 기타 문의는 아래로 연락해 주세요. 확인 후 반영하겠습니다.</p>
+${contactLine}
+<h2>이런 것을 신고해 주세요</h2>
+<ul>
+  <li><strong>잘못된 가격</strong> — 표시 가격과 쿠팡 실제 가격이 다를 때</li>
+  <li><strong>품절 상품</strong> — 이미 판매가 끝난 상품</li>
+  <li><strong>링크 오류</strong> — 쿠팡으로 연결되지 않는 링크</li>
+</ul>
+<p>신고 시 <strong>상품명 또는 주소</strong>를 함께 알려주시면 빠르게 확인할 수 있습니다.</p>`,
+  },
+  {
+    slug: 'terms',
+    title: '이용약관',
+    desc: '꿀딜 서비스 이용에 관한 약관입니다.',
+    body: `<h1>이용약관</h1>
+<ul>
+  <li>꿀딜은 쿠팡 상품 정보를 큐레이션하여 제공하는 <strong>정보 서비스</strong>입니다.</li>
+  <li>표시된 가격·재고·배송·쿠폰 정보는 참고용이며, 정확성·최신성을 보증하지 않습니다. <strong>최종 정보는 쿠팡 구매 페이지 기준</strong>입니다.</li>
+  <li>모든 구매는 쿠팡에서 이루어지며, 상품의 배송·환불·교환·A/S 등은 <strong>쿠팡 및 판매자의 정책</strong>을 따릅니다.</li>
+  <li>꿀딜은 제공 정보의 오류나 이를 근거로 한 구매 결정에 대해 법적 책임을 지지 않습니다.</li>
+  <li>본 사이트가 직접 작성한 콘텐츠(정리된 상품명, 추천 이유 등)의 무단 복제를 금합니다.</li>
+</ul>`,
+  },
+  {
+    slug: 'privacy',
+    title: '개인정보처리방침 · 쿠키 안내',
+    desc: '꿀딜의 개인정보 처리와 쿠키·분석도구 사용에 관한 안내입니다.',
+    body: `<h1>개인정보처리방침 · 쿠키 안내</h1>
+<ul>
+  <li>꿀딜은 <strong>회원가입이 없으며</strong>, 이름·연락처 등 개인정보를 직접 수집하지 않습니다.</li>
+  <li>찜 · 최근 본 상품 · 테마 설정 등은 방문자의 <strong>브라우저(localStorage)에만 저장</strong>되며 서버로 전송되지 않습니다.</li>
+  <li>방문 분석을 위해 Google Analytics 등 분석 도구를 사용할 수 있으며, 이 경우 <strong>쿠키를 통해 익명화된 이용 통계</strong>를 수집할 수 있습니다.</li>
+  <li>브라우저 설정에서 쿠키·사이트 데이터를 삭제하면 저장된 정보가 지워집니다.</li>
+</ul>`,
+  },
+];
+
+function infoPage(page) {
+  const canonical = `${BASE}/info/${page.slug}.html`;
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@graph': [
+      {
+        '@type': 'BreadcrumbList',
+        itemListElement: [
+          { '@type': 'ListItem', position: 1, name: '홈', item: `${BASE}/` },
+          { '@type': 'ListItem', position: 2, name: page.title, item: canonical },
+        ],
+      },
+      { '@type': 'WebPage', name: `${page.title} | 꿀딜`, url: canonical, description: page.desc },
+    ],
+  };
+  const body = `<nav class="crumb wrap" aria-label="위치">
+  <a href="${BASE}/">홈</a> <span aria-hidden="true">›</span> <span>${esc(page.title)}</span>
+</nav>
+<main class="wrap info">
+  ${page.body}
+</main>`;
+  return pageShell({
+    title: `${page.title} | 꿀딜`,
+    description: page.desc,
+    canonical,
+    jsonLd,
+    body,
+    assetPrefix: '../',
+  });
+}
+
 function buildSitemap(byCat) {
   const now = new Date().toISOString().slice(0, 10);
   const urls = [
     `${BASE}/`,
     `${BASE}/c/`,
     ...[...byCat.keys()].map((c) => `${BASE}/c/${encodeURIComponent(fileFor(c))}.html`),
+    ...INFO_PAGES.map((p) => `${BASE}/info/${p.slug}.html`),
   ];
   const body = urls
     .map(
@@ -263,9 +407,17 @@ async function main() {
     await fs.writeFile(file, categoryPage(category, products), 'utf8');
   }
   await fs.writeFile(path.join(OUT_DIR, 'index.html'), hubPage(byCat), 'utf8');
+
+  // 신뢰 페이지 (소개·기준·제휴·문의·약관·개인정보)
+  const INFO_DIR = path.join(ROOT, 'info');
+  await fs.mkdir(INFO_DIR, { recursive: true });
+  for (const page of INFO_PAGES) {
+    await fs.writeFile(path.join(INFO_DIR, `${page.slug}.html`), infoPage(page), 'utf8');
+  }
+
   await fs.writeFile(path.join(ROOT, 'sitemap.xml'), buildSitemap(byCat), 'utf8');
 
-  console.log(`카테고리 ${byCat.size}개 → c/*.html + 허브 + sitemap.xml`);
+  console.log(`카테고리 ${byCat.size}개 → c/*.html + 허브 · 신뢰 페이지 ${INFO_PAGES.length}개 → info/ · sitemap.xml`);
   console.log(`도메인: ${BASE}${BASE.includes('example.com') ? '  (⚠ --base 로 실제 도메인을 지정하세요)' : ''}`);
 }
 

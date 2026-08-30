@@ -626,6 +626,26 @@ body {
 .footer-nav a { color: var(--brand); font-weight: 600; text-decoration: none; }
 .footer-nav a:hover { text-decoration: underline; }
 
+.footer-links {
+  margin: 14px 0 0; display: flex; flex-wrap: wrap; gap: 6px 16px;
+  font-size: 12.5px;
+}
+.footer-links a { color: var(--text-dim); text-decoration: none; }
+.footer-links a:hover { color: var(--text); text-decoration: underline; }
+
+/* ---------- 신뢰 페이지 (info/*) ---------- */
+.info { max-width: 760px; padding-top: 8px; padding-bottom: 40px; }
+.info h1 { font-size: clamp(24px, 4vw, 32px); font-weight: 800; letter-spacing: -.02em; margin: 12px 0 20px; }
+.info h2 { font-size: 18px; font-weight: 700; margin: 28px 0 10px; }
+.info p { font-size: 15px; line-height: 1.7; color: var(--text); margin: 0 0 12px; }
+.info ul { padding-left: 20px; margin: 0 0 14px; }
+.info li { font-size: 15px; line-height: 1.7; margin: 4px 0; }
+.info strong { font-weight: 700; }
+.info a { color: var(--brand); text-decoration: none; }
+.info a:hover { text-decoration: underline; }
+.info code { background: var(--bg-soft); padding: 1px 6px; border-radius: 5px; font-size: 13px; }
+.info .muted { color: var(--text-dim); font-size: 13.5px; }
+
 @media (max-width: 640px) {
   .brand-text { display: none; }
   .grid { grid-template-columns: repeat(auto-fill, minmax(min(100%, 150px), 1fr)); gap: 10px; }
