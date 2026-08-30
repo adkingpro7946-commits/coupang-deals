@@ -60,6 +60,16 @@ function recordClick(id) {
 const won = new Intl.NumberFormat('ko-KR');
 const fmt = (n) => won.format(n) + '원';
 
+/**
+ * 화면 표시용 상품명 정리(보수적). 앞머리 [프로모션 태그]와 중복 공백만 제거한다.
+ * 마케팅 키워드를 함부로 잘라 뜻을 바꾸지 않는다(스펙 13: 오인 금지). 2줄 클램프로 길이는 처리.
+ * 정교한 이름 큐레이션은 관리자(백엔드) 단계에서.
+ */
+function displayName(p) {
+  const s = (p.name || '').replace(/\s+/g, ' ').replace(/^(\[[^\]]*\]\s*)+/, '').trim();
+  return s || p.name || '';
+}
+
 function debounce(fn, ms) {
   let t;
   return (...a) => {
@@ -344,8 +354,39 @@ function initTheme() {
 /* ---------- 히어로 (베스트 특가) ----------
  * "왜 쿠팡 대신 여기?" 에 대한 답. 큰 할인·가격 인하를 첫 화면에서 바로 보여준다.
  */
-const isDrop = (p) => p.priceDrop?.from > p.price;
+// ── 가격 인하 배지 / 메인 특가 노출 기준 (관리자 UI 대신 설정값 — 여기서 조정) ──
+// 의미 없는 10원·100원 변동은 배지로 강조하지 않는다.
+const DROP_MIN_PCT = 3;     // 배지 노출: 인하율 3% 이상
+const DROP_MIN_AMT = 1000;  //   또는 인하액 1,000원 이상
+const DEAL_MIN_PCT = 5;     // 메인 특가(스포트라이트): 인하율 5% 이상
+const DEAL_MIN_AMT = 3000;  //   또는 인하액 3,000원 이상
+
+/** priceDrop이 실제 인하일 때 {from, amt, pct} 반환. 아니면 null. */
+function dropOf(p) {
+  const from = p.priceDrop?.from;
+  if (!from || from <= p.price) return null;
+  const amt = from - p.price;
+  return { from, amt, pct: Math.round((amt / from) * 100) };
+}
+/** 배지를 붙일 만큼 의미 있는 인하인가 */
+const isDrop = (p) => { const d = dropOf(p); return !!d && (d.pct >= DROP_MIN_PCT || d.amt >= DROP_MIN_AMT); };
+/** 메인 특가로 올릴 만큼 큰 인하인가 */
+const isBigDeal = (p) => { const d = dropOf(p); return !!d && (d.pct >= DEAL_MIN_PCT || d.amt >= DEAL_MIN_AMT); };
 const isGold = (p) => p.source === 'goldbox';
+
+/** ISO 시각 → "N분 전 / N시간 전 / N일 전" */
+function timeAgo(iso) {
+  const t = Date.parse(iso);
+  if (!t) return '';
+  const min = Math.floor((Date.now() - t) / 60000);
+  if (min < 1) return '방금';
+  if (min < 60) return `${min}분 전`;
+  const hr = Math.floor(min / 60);
+  if (hr < 24) return `${hr}시간 전`;
+  return `${Math.floor(hr / 24)}일 전`;
+}
+/** 상품의 마지막 가격 확인 시각(없으면 파일 생성시각으로 대체) */
+const checkedAt = (p) => timeAgo(p.lastSeen || state.generatedAt);
 
 function scrollToGrid() {
   const nav = $('.filters');
@@ -418,11 +459,13 @@ function renderSpotlight(items) {
   const box = $('#spotlight');
 
   // 가격 내림을 최우선, 그다음 골드박스(쿠팡이 고른 특가, rank 낮을수록 상위). 이미지 없는 건 제외.
-  const score = (p) =>
-    (isDrop(p) ? 2000 + (p.priceDrop.pct || 0) : 0) +
-    (isGold(p) ? 1000 - Math.min(p.rank || 999, 999) : 0);
+  const score = (p) => {
+    const d = dropOf(p);
+    return (d ? 2000 + d.pct : 0) + (isGold(p) ? 1000 - Math.min(p.rank || 999, 999) : 0);
+  };
+  // 메인 특가엔 "큰 인하(5%+/3,000원+)" 또는 골드박스만 올린다.
   const picks = items
-    .filter((p) => p.image && (isDrop(p) || isGold(p)))
+    .filter((p) => p.image && (isBigDeal(p) || isGold(p)))
     .sort((a, b) => score(b) - score(a))
     .slice(0, 12);
 
@@ -472,7 +515,7 @@ function renderSpotlight(items) {
     body.className = 'spot-body';
     const name = document.createElement('p');
     name.className = 'spot-name';
-    name.textContent = p.name;
+    name.textContent = displayName(p);
     const price = document.createElement('div');
     price.className = 'spot-price';
     const now = document.createElement('span');
@@ -540,7 +583,7 @@ function applyFilters() {
   $('#end').hidden = true;
   $('#empty').hidden = rows.length > 0;
 
-  const drops = rows.filter((p) => p.priceDrop?.from > p.price).length;
+  const drops = rows.filter(isDrop).length;
   $('#count').innerHTML = rows.length
     ? `<b>${won.format(rows.length)}</b>개 상품` +
       (drops ? ` · <b style="color:#0aa06e">${drops}</b>개 가격 내림` : '')
@@ -585,7 +628,7 @@ function renderMore() {
       img.style.display = 'none';
     }, { once: true });
 
-    node.querySelector('.name').textContent = p.name;
+    node.querySelector('.name').textContent = displayName(p);
     node.querySelector('.price').textContent = fmt(p.price);
 
     if (p.discountRate > 0) {
@@ -593,17 +636,24 @@ function renderMore() {
       b.textContent = p.discountRate + '%';
       b.hidden = false;
     }
-    if (p.basePrice > p.price) {
-      const base = node.querySelector('.base');
-      base.textContent = fmt(p.basePrice);
-      base.hidden = false;
+
+    // 가격 인하 근거 (의미 있는 인하일 때만): 이전 확인가 + 인하액/인하율
+    const d = dropOf(p);
+    if (d && isDrop(p)) {
+      const badge = node.querySelector('.badge-drop');
+      badge.textContent = `↓ ${won.format(d.amt)}원 내림`;
+      badge.hidden = false;
+
+      const line = node.querySelector('.drop-line');
+      node.querySelector('.drop-prev').textContent = `이전 ${fmt(d.from)}`;
+      node.querySelector('.drop-amt').textContent = `${won.format(d.amt)}원↓ ${d.pct}%`;
+      line.hidden = false;
     }
-    // 직전 수집분보다 실제로 내려간 경우에만
-    if (p.priceDrop?.from > p.price) {
-      const d = node.querySelector('.badge-drop');
-      d.textContent = `↓ ${won.format(p.priceDrop.from - p.price)}원 내림`;
-      d.hidden = false;
-    }
+
+    // 마지막 가격 확인 시간
+    const ago = checkedAt(p);
+    if (ago) node.querySelector('.checked-at').textContent = `${ago} 확인`;
+
     if (isGold(p)) node.querySelector('.badge-gold').hidden = false;
     if (p.rocket) node.querySelector('.tag-rocket').hidden = false;
     if (p.freeShipping) node.querySelector('.tag-free').hidden = false;
@@ -888,6 +938,7 @@ async function main() {
 
   state.all = data.products || [];
   state.byId = new Map(state.all.map((p) => [p.id, p]));
+  state.generatedAt = data.generatedAt; // "N분 전 확인"의 대체 기준
 
   if (data.sample) {
     const n = $('#notice');

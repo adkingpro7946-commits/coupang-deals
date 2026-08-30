@@ -53,6 +53,22 @@ body {
   padding: 10px 16px; border-radius: 8px;
 }
 
+/* ---------- 상단 제휴 고지 바 ---------- */
+.disclosure-top {
+  background: var(--bg-soft);
+  border-bottom: 1px solid var(--line);
+  color: var(--text-dim);
+  font-size: 12px; line-height: 1.5;
+  text-align: center;
+  padding: 8px 16px;
+}
+.disclosure-top b { color: var(--text); font-weight: 700; }
+
+.disclosure-inline {
+  margin: 8px 0 14px;
+  font-size: 12px; color: var(--text-dim); line-height: 1.5;
+}
+
 /* ---------- 헤더 ---------- */
 .header {
   position: sticky; top: 0; z-index: 30;
@@ -484,8 +500,14 @@ body {
 .tag-rocket { color: var(--rocket); background: color-mix(in srgb, var(--rocket) 12%, transparent); }
 
 .price-row { display: flex; align-items: baseline; gap: 6px; margin-top: auto; }
-.price { font-size: 17px; font-weight: 800; letter-spacing: -.03em; }
+.price { font-size: 18px; font-weight: 800; letter-spacing: -.03em; }
 .base { font-size: 12px; color: var(--text-dim); text-decoration: line-through; }
+
+/* 가격 인하 근거 (이전가 · 인하액/인하율) */
+.drop-line { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px; margin-top: 2px; }
+.drop-prev { font-size: 12px; color: var(--text-dim); text-decoration: line-through; }
+.drop-amt { font-size: 12px; font-weight: 800; color: #0aa06e; }
+.checked-at { display: block; margin-top: 3px; font-size: 11px; color: var(--text-dim); }
 
 .cta {
   margin-top: 2px;

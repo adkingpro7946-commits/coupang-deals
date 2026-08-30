@@ -46,6 +46,11 @@
 
 <a class="skip" href="#grid">본문 바로가기</a>
 
+<div class="disclosure-top">
+  이 사이트는 쿠팡 파트너스 활동의 일환으로 일정액의 수수료를 제공받으며, <b>상품 가격에는 영향을 주지 않습니다.</b>
+  꿀딜은 쿠팡이 직접 운영하는 공식 사이트가 아닌 독립 상품 큐레이션 사이트입니다.
+</div>
+
 <header class="header">
   <div class="wrap header-in">
     <a class="brand" href="./">
@@ -132,6 +137,9 @@
     <div id="count" class="count" aria-live="polite"></div>
     <button id="share" class="link-btn" type="button" hidden>🔗 이 목록 공유</button>
   </div>
+  <p class="disclosure-inline">
+    쿠팡 파트너스 제휴 링크가 포함됩니다. 가격·재고·쿠폰·배송 조건은 수시로 바뀌며, 최종 정보는 쿠팡 구매 페이지 기준입니다.
+  </p>
 
   <section id="grid" class="grid" aria-label="상품 목록"></section>
 
@@ -183,6 +191,11 @@
         <span class="price"></span>
         <span class="base" hidden></span>
       </div>
+      <div class="drop-line" hidden>
+        <span class="drop-prev"></span>
+        <span class="drop-amt"></span>
+      </div>
+      <span class="checked-at"></span>
       <span class="cta">쿠팡에서 보기 <span aria-hidden="true">→</span></span>
     </div>
   </a>
