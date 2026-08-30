@@ -110,6 +110,16 @@
 </nav>
 
 <main class="wrap">
+  <button id="wish-alert" class="wish-alert" type="button" hidden></button>
+
+  <section id="wish-wrap" class="recent" aria-labelledby="wish-h" hidden>
+    <div class="recent-head">
+      <h2 id="wish-h" class="recent-title">💛 내 찜 <span id="wish-count"></span></h2>
+      <button id="wish-clear" class="link-btn" type="button">비우기</button>
+    </div>
+    <div id="wish" class="recent-strip"></div>
+  </section>
+
   <section id="recent-wrap" class="recent" aria-labelledby="recent-h" hidden>
     <div class="recent-head">
       <h2 id="recent-h" class="recent-title">최근 본 상품</h2>
@@ -176,7 +186,10 @@
       <span class="cta">쿠팡에서 보기 <span aria-hidden="true">→</span></span>
     </div>
   </a>
-  <button class="share-btn" type="button" aria-label="이 상품 공유하기">📋 공유</button>
+  <div class="card-actions">
+    <button class="act act-wish" type="button" aria-label="찜하기" title="찜">♡</button>
+    <button class="act act-share" type="button" aria-label="공유하기" title="공유">📋</button>
+  </div>
   </div>
 </template>
 

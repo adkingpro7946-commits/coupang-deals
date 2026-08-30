@@ -4,6 +4,7 @@ const PAGE = 24;            // 한 번에 그릴 카드 수
 const RECENT_MAX = 12;
 const CLICK_KEY = 'cp:clicks';
 const RECENT_KEY = 'cp:recent';
+const WISH_KEY = 'cp:wish';
 
 const state = {
   all: [],
@@ -17,6 +18,7 @@ const state = {
   sort: 'recommended',
   clicks: readClicks(),
   recent: readJSON(RECENT_KEY, []),
+  wish: readJSON(WISH_KEY, {}), // { id: {id,name,image,url,price,savedAt} }
 };
 
 const $ = (sel) => document.querySelector(sel);
@@ -165,6 +167,105 @@ function renderRecent() {
 
   strip.replaceChildren(frag);
   wrap.hidden = false;
+}
+
+/* ---------- 찜 + 가격 내림 알림 (재방문 유도) ----------
+ * 찜하면 그 순간의 가격을 저장하고, 다시 왔을 때 지금 데이터의 가격과 비교해
+ * 내려간 상품을 알려준다. 전부 localStorage — 서버로 아무것도 보내지 않는다.
+ */
+function isWished(id) {
+  return !!state.wish[id];
+}
+
+function toggleWish(product) {
+  if (state.wish[product.id]) {
+    delete state.wish[product.id];
+  } else {
+    // 찜한 순간의 정보를 통째로 저장 → 나중에 카탈로그에서 빠져도 목록은 유지된다.
+    state.wish[product.id] = {
+      id: product.id,
+      name: product.name,
+      image: product.image,
+      url: product.url,
+      price: product.price, // 찜했을 때 가격 (비교 기준)
+      savedAt: Date.now(),
+    };
+  }
+  writeJSON(WISH_KEY, state.wish);
+  renderWish();
+  renderWishAlert();
+}
+
+/** 찜 목록의 각 상품에 대해 현재가와 저장가를 비교한 뷰를 만든다. */
+function wishView() {
+  return Object.values(state.wish)
+    .sort((a, b) => b.savedAt - a.savedAt)
+    .map((w) => {
+      const cur = state.byId?.get(w.id); // 지금 카탈로그에 있으면 현재가로 비교
+      const nowPrice = cur ? cur.price : w.price;
+      const drop = w.price > nowPrice ? w.price - nowPrice : 0;
+      return { ...w, url: cur ? cur.url : w.url, nowPrice, drop };
+    });
+}
+
+function renderWish() {
+  const wrap = $('#wish-wrap');
+  const strip = $('#wish');
+  const items = wishView();
+
+  $('#wish-count').textContent = items.length ? `${items.length}개` : '';
+  if (!items.length) {
+    wrap.hidden = true;
+    return;
+  }
+
+  const frag = document.createDocumentFragment();
+  for (const w of items) {
+    const a = document.createElement('a');
+    a.className = 'wc';
+    a.href = w.url;
+    a.target = '_blank';
+    a.rel = 'noopener noreferrer sponsored';
+    a.dataset.id = w.id;
+
+    const img = document.createElement('img');
+    img.src = w.image;
+    img.alt = '';
+    img.loading = 'lazy';
+    img.addEventListener('error', () => { img.style.display = 'none'; }, { once: true });
+
+    const name = document.createElement('p');
+    name.className = 'wc-name';
+    name.textContent = w.name;
+
+    const price = document.createElement('span');
+    price.className = 'wc-price';
+    price.textContent = fmt(w.nowPrice);
+
+    a.append(img, name, price);
+    if (w.drop > 0) {
+      const d = document.createElement('span');
+      d.className = 'wc-drop';
+      d.textContent = `↓ ${won.format(w.drop)}원 내림`;
+      a.appendChild(d);
+    }
+    frag.appendChild(a);
+  }
+  strip.replaceChildren(frag);
+  wrap.hidden = false;
+}
+
+/** 찜한 상품 중 가격 내린 게 있으면 상단 배너로 재방문을 보상한다. */
+function renderWishAlert() {
+  const dropped = wishView().filter((w) => w.drop > 0);
+  const banner = $('#wish-alert');
+  if (!dropped.length) {
+    banner.hidden = true;
+    return;
+  }
+  const total = dropped.reduce((s, w) => s + w.drop, 0);
+  banner.textContent = `🔔 찜한 상품 ${dropped.length}개가 가격이 내렸어요! (총 ${won.format(total)}원 ↓) — 눌러서 보기`;
+  banner.hidden = false;
 }
 
 /* ---------- URL 동기화 ----------
@@ -508,6 +609,12 @@ function renderMore() {
     if (p.freeShipping) node.querySelector('.tag-free').hidden = false;
     if (p.isNew) node.querySelector('.tag-new').hidden = false;
 
+    if (isWished(p.id)) {
+      const w = node.querySelector('.act-wish');
+      w.textContent = '♥';
+      w.classList.add('on');
+    }
+
     frag.appendChild(node);
   }
 
@@ -605,14 +712,23 @@ function initEvents() {
     if (a) recordClick(a.dataset.id);
   });
 
-  // 공유 버튼 (카드 이동보다 먼저 가로챈다)
+  // 카드 액션(찜/공유) — 카드 이동보다 먼저 가로챈다.
   grid.addEventListener('click', (e) => {
-    const btn = e.target.closest('.share-btn');
-    if (!btn) return;
+    const act = e.target.closest('.act');
+    if (!act) return;
     e.preventDefault();
-    const card = btn.closest('.card-wrap')?.querySelector('.card');
+    const card = act.closest('.card-wrap')?.querySelector('.card');
     const p = card && state.byId?.get(card.dataset.id);
-    if (p) shareProduct(p);
+    if (!p) return;
+    if (act.classList.contains('act-wish')) {
+      toggleWish(p);
+      const on = isWished(p.id);
+      act.textContent = on ? '♥' : '♡';
+      act.classList.toggle('on', on);
+      if (on) toast('찜했어요 💛 가격 내리면 알려드릴게요');
+    } else if (act.classList.contains('act-share')) {
+      shareProduct(p);
+    }
   });
 
   // 카드 클릭 위임. preventDefault를 하지 않으므로 이동은 브라우저에 맡긴다.
@@ -647,6 +763,22 @@ function initEvents() {
     state.recent = [];
     writeJSON(RECENT_KEY, state.recent);
     renderRecent();
+  });
+
+  // 찜: 클릭 기록 / 비우기 / 알림 배너
+  $('#wish').addEventListener('click', (e) => {
+    const a = e.target.closest('.wc');
+    if (a) recordClick(a.dataset.id);
+  });
+  $('#wish-clear').addEventListener('click', () => {
+    state.wish = {};
+    writeJSON(WISH_KEY, state.wish);
+    renderWish();
+    renderWishAlert();
+    grid.querySelectorAll('.act-wish.on').forEach((w) => { w.textContent = '♡'; w.classList.remove('on'); });
+  });
+  $('#wish-alert').addEventListener('click', () => {
+    $('#wish-wrap').scrollIntoView({ behavior: 'smooth', block: 'center' });
   });
 
   $('#share').addEventListener('click', async () => {
@@ -777,6 +909,8 @@ async function main() {
   renderHero();   // 히어로(통계·스포트라이트)를 채우고
   applyFilters(); // 그리드를 렌더한다
   renderRecent();
+  renderWish();       // 찜 목록
+  renderWishAlert();  // 재방문 시 "가격 내렸어요" 배너
   injectJsonLd(state.all);
 }
 

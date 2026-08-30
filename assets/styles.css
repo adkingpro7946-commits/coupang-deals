@@ -379,22 +379,71 @@ body {
   box-shadow: 0 2px 8px rgba(232, 137, 12, .4);
 }
 
-/* ---------- 공유 버튼 (커뮤니티/SNS 나르기용) ---------- */
+/* ---------- 카드 액션 (찜 · 공유) ---------- */
 .card-wrap { position: relative; display: flex; }
 .card-wrap > .card { flex: 1; min-width: 0; }
 
-.share-btn {
+.card-actions {
   position: absolute; top: 8px; right: 8px; z-index: 3;
+  display: flex; gap: 5px;
+  opacity: 0; transform: translateY(-2px);
+  transition: opacity .15s, transform .15s;
+}
+.card-wrap:hover .card-actions,
+.card-wrap:focus-within .card-actions { opacity: 1; transform: none; }
+
+.act {
   border: 0; border-radius: 8px;
   background: rgba(0, 0, 0, .62); color: #fff;
-  font-size: 11px; font-weight: 700; font-family: inherit;
-  padding: 5px 9px; cursor: pointer;
-  opacity: 0; transform: translateY(-2px);
-  transition: opacity .15s, transform .15s, background .15s;
+  font-size: 13px; font-weight: 700; font-family: inherit; line-height: 1;
+  padding: 6px 8px; cursor: pointer;
+  transition: background .15s, color .15s, transform .1s;
 }
-.card-wrap:hover .share-btn,
-.share-btn:focus-visible { opacity: 1; transform: none; }
-.share-btn:hover { background: var(--brand); }
+.act:hover { background: var(--brand); }
+.act:active { transform: scale(.9); }
+.act-wish.on { background: #fff; color: var(--brand); box-shadow: 0 1px 4px rgba(0,0,0,.25); }
+.act-wish.on:hover { background: #fff; }
+
+/* 토스트 알림 */
+.toast {
+  position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%) translateY(20px);
+  z-index: 200;
+  background: #12151b; color: #fff;
+  padding: 12px 20px; border-radius: 12px;
+  font-size: 13.5px; font-weight: 600;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, .35);
+  opacity: 0; pointer-events: none;
+  transition: opacity .2s, transform .2s;
+  max-width: 90vw; text-align: center;
+}
+.toast.show { opacity: 1; transform: translateX(-50%); }
+:root[data-theme="dark"] .toast { background: #2a2f3a; }
+
+/* 재방문 알림 배너 (찜한 상품 가격 내림) */
+.wish-alert {
+  display: block; width: 100%;
+  margin: 18px 0 4px;
+  padding: 14px 18px;
+  border: 0; border-radius: 12px; cursor: pointer;
+  background: linear-gradient(100deg, #0aa06e, #0a8a90);
+  color: #fff; font-family: inherit;
+  font-size: 15px; font-weight: 700; text-align: left;
+  box-shadow: 0 6px 18px rgba(10, 160, 110, .3);
+  transition: transform .12s;
+}
+.wish-alert:hover { transform: translateY(-1px); }
+
+/* 찜 카드(스트립) — 최근 본 상품(.rc)에 가격/내림 정보를 더한 형태 */
+.wc { flex-shrink: 0; width: 116px; text-decoration: none; color: inherit; scroll-snap-align: start; }
+.wc img { width: 116px; height: 116px; object-fit: cover; border-radius: 10px; border: 1px solid var(--line); background: var(--bg-soft); display: block; }
+.wc-name { margin: 6px 0 2px; font-size: 11.5px; line-height: 1.3; color: var(--text-dim); display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; height: 2.6em; }
+.wc-price { font-size: 13px; font-weight: 800; letter-spacing: -.02em; }
+.wc-drop { display: block; font-size: 11px; font-weight: 700; color: #0aa06e; margin-top: 1px; }
+
+@media (max-width: 640px) {
+  .card-actions { opacity: 1; transform: none; }
+  .act { padding: 7px 9px; font-size: 14px; }
+}
 
 /* 토스트 알림 */
 .toast {
