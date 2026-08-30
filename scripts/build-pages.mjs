@@ -91,10 +91,14 @@ function pageShell({ title, description, canonical, jsonLd, body, assetPrefix })
 <meta name="description" content="${esc(description)}">
 <meta name="theme-color" content="#0b0d12">
 <meta property="og:type" content="website">
+<meta property="og:url" content="${esc(canonical)}">
 <meta property="og:title" content="${esc(title)}">
 <meta property="og:description" content="${esc(description)}">
-<meta property="og:image" content="${assetPrefix}assets/og.svg">
+<meta property="og:image" content="${BASE}/assets/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
 <meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:image" content="${BASE}/assets/og.png">
 <link rel="canonical" href="${esc(canonical)}">
 <link rel="stylesheet" href="${assetPrefix}assets/styles.css">
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><text y='26' font-size='26'>🛒</text></svg>">
