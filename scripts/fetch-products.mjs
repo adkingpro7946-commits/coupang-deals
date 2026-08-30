@@ -1,30 +1,81 @@
 // data/products.json 을 생성한다.
-//   node scripts/fetch-products.mjs
-//   node scripts/fetch-products.mjs --keywords "무선이어폰,캠핑의자" --best 1001,1002
+//   node scripts/fetch-products.mjs                    전체 키워드 한 번에 수집(교체) — API 한도 주의
+//   node scripts/fetch-products.mjs --rotate 14        풀에서 14개만 순환 수집 후 기존과 병합(권장, 자동 실행용)
+//   node scripts/fetch-products.mjs --keywords "무선이어폰,캠핑의자"
+//
+// --rotate N: 매 실행 N개 키워드씩 순환 사용 + 병합. 시간당 API 한도를 넘지 않으면서
+//   며칠에 걸쳐 카탈로그를 넓게 쌓는다. 회전 위치는 data/rotation.json 에 저장된다.
 //
 // 시크릿 키는 이 프로세스 안에서만 쓰이고, 결과물(products.json)에는 들어가지 않는다.
 
 import fs from 'node:fs/promises';
 import path from 'node:path';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { CoupangPartners, normalize, productUrlToCanonical } from './coupang.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const OUT = path.join(ROOT, 'data', 'products.json');
+const ROTATE_FILE = path.join(ROOT, 'data', 'rotation.json');
+const MAX_AGE_DAYS = 14;   // 이 기간 넘게 안 보인 상품은 정리(오래된/품절 방지)
+const MAX_PRODUCTS = 800;  // 파일·페이지가 너무 커지지 않게 상한
 
 function arg(name, fallback = '') {
   const i = process.argv.indexOf(`--${name}`);
   return i !== -1 && process.argv[i + 1] ? process.argv[i + 1] : fallback;
 }
 
-/** 직전 수집분을 읽어 id → {price, firstSeen} 으로 만든다. 없으면 빈 맵. */
-async function loadPrevious() {
+/**
+ * 키워드 풀에서 cursor 위치부터 count개를 순환 선택한다.
+ * 매 실행 다른 구간을 써서 하루 API 호출을 줄이고, 며칠에 걸쳐 풀 전체를 훑는다.
+ * count가 풀 크기 이상이면 전체를 그대로 쓴다(회전 안 함).
+ */
+export function rotateKeywords(pool, cursor, count) {
+  if (count <= 0 || pool.length <= count) return { keywords: pool.slice(), nextCursor: cursor };
+  const keywords = [];
+  for (let i = 0; i < count; i++) keywords.push(pool[(cursor + i) % pool.length]);
+  return { keywords, nextCursor: (cursor + count) % pool.length };
+}
+
+/**
+ * 이전 목록에 이번 수집분을 병합한다(회전 수집의 핵심).
+ * - 이번에 받은 상품은 최신값으로 갱신/추가 (lastSeen=now)
+ * - 이번에 안 받은 이전 상품은 그대로 유지 (며칠 전 가격이지만 카탈로그는 넓게)
+ * - maxAgeDays 넘게 안 보인 건 정리, 총 maxProducts개로 제한(최근 본 순).
+ */
+export function mergeProducts(prevList, fetched, now, opts = {}) {
+  const { maxAgeDays = MAX_AGE_DAYS, maxProducts = MAX_PRODUCTS, prevGeneratedAt = null } = opts;
+  const cutoff = Date.parse(now) - maxAgeDays * 86400000;
+  const merged = new Map();
+  for (const p of prevList) {
+    if (!p.lastSeen) p.lastSeen = prevGeneratedAt || now; // 승계: 오래됨 판정 기준
+    merged.set(p.id, p);
+  }
+  for (const p of fetched) merged.set(p.id, p); // 이번 수집이 우선(최신 가격·링크)
+  let list = [...merged.values()].filter((p) => Date.parse(p.lastSeen || 0) >= cutoff);
+  list.sort((a, b) => Date.parse(b.lastSeen || 0) - Date.parse(a.lastSeen || 0));
+  return list.length > maxProducts ? list.slice(0, maxProducts) : list;
+}
+
+async function loadCursor() {
+  try {
+    return JSON.parse(await fs.readFile(ROTATE_FILE, 'utf8')).offset || 0;
+  } catch {
+    return 0;
+  }
+}
+async function saveCursor(offset) {
+  await fs.mkdir(path.dirname(ROTATE_FILE), { recursive: true });
+  await fs.writeFile(ROTATE_FILE, JSON.stringify({ offset, updatedAt: new Date().toISOString() }, null, 2), 'utf8');
+}
+
+/** 직전 수집분 전체를 읽는다(병합·가격비교용). 없거나 샘플이면 빈 목록. */
+async function loadPrevFull() {
   try {
     const prev = JSON.parse(await fs.readFile(OUT, 'utf8'));
-    if (prev.sample) return new Map(); // 샘플과 실제 가격을 비교하면 안 된다
-    return new Map((prev.products || []).map((p) => [p.id, p]));
+    if (prev.sample) return { products: [], generatedAt: null };
+    return { products: prev.products || [], generatedAt: prev.generatedAt || null };
   } catch {
-    return new Map();
+    return { products: [], generatedAt: null };
   }
 }
 
@@ -132,8 +183,22 @@ async function main() {
 
   const bestCategories = arg('best').split(',').map((s) => s.trim()).filter(Boolean);
 
-  // 덮어쓰기 전에 읽어야 가격 비교가 가능하다.
-  const prev = await loadPrevious();
+  // 회전 수집: 풀에서 이번 실행에 쓸 키워드만 잘라낸다(API 시간당 한도 회피).
+  const rotate = parseInt(arg('rotate', '0'), 10) || 0;
+  const pool = keywords;
+  let nextCursor = 0;
+  if (rotate > 0 && pool.length > rotate) {
+    const cursor = await loadCursor();
+    const r = rotateKeywords(pool, cursor, rotate);
+    keywords = r.keywords;
+    nextCursor = r.nextCursor;
+    console.log(`회전 수집: 풀 ${pool.length}개 중 ${rotate}개 사용 (offset ${cursor} → ${nextCursor})`);
+  }
+
+  // 덮어쓰기/병합 전에 읽어야 가격 비교가 가능하다.
+  const prevData = await loadPrevFull();
+  const prevList = prevData.products;
+  const prevMap = new Map(prevList.map((p) => [p.id, p]));
 
   const api = new CoupangPartners();
   const all = [];
@@ -189,25 +254,35 @@ async function main() {
   console.log(`딥링크 변환: ${converted}/${unique.length}개`);
 
   const now = new Date().toISOString();
-  const { drops, fresh } = markPriceDrops(unique, prev, now);
+  const { drops, fresh } = markPriceDrops(unique, prevMap, now);
+  for (const p of unique) p.lastSeen = now;
+
+  // 회전 수집이면 이전 상품과 병합해 쌓고, 아니면 이번 수집으로 통째 교체한다.
+  const products = rotate > 0
+    ? mergeProducts(prevList, unique, now, { prevGeneratedAt: prevData.generatedAt })
+    : unique;
 
   const out = {
     generatedAt: now,
     sample: false,
-    count: unique.length,
-    products: unique,
+    count: products.length,
+    products,
   };
 
   await fs.mkdir(path.dirname(OUT), { recursive: true });
   await fs.writeFile(OUT, JSON.stringify(out, null, 2), 'utf8');
+  if (rotate > 0 && pool.length > rotate) await saveCursor(nextCursor);
 
-  console.log(`\n${unique.length}개 상품 → data/products.json (중복 ${all.length - unique.length}개 제거)`);
-  if (prev.size) console.log(`가격 내림 ${drops}개 · 신규 ${fresh}개 (직전 수집분 ${prev.size}개와 비교)`);
+  console.log(`\n총 ${products.length}개 상품 → data/products.json (이번 수집 ${unique.length}개)`);
+  if (prevMap.size) console.log(`가격 내림 ${drops}개 · 신규 ${fresh}개`);
   else console.log('직전 수집분이 없어 가격 비교는 건너뜁니다. 다음 실행부터 "가격 내림"이 표시됩니다.');
   if (errors.length) console.log(`\n일부 실패:\n${errors.map((e) => `  - ${e}`).join('\n')}`);
 }
 
-main().catch((err) => {
-  console.error(err.message);
-  process.exit(1);
-});
+// 직접 실행할 때만 돌린다(테스트용 import 시엔 main을 실행하지 않음).
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
+  main().catch((err) => {
+    console.error(err.message);
+    process.exit(1);
+  });
+}

@@ -25,8 +25,10 @@ function Log($msg) {
 
 Log '=== refresh start ==='
 
-# 1. Fetch products (keywords read from scripts/keywords.txt inside the script).
-& $NODE 'scripts/fetch-products.mjs' 2>&1 | ForEach-Object { Log $_ }
+# 1. Fetch products. --rotate 14 = use 14 keywords from the pool each run and MERGE
+#    with existing data. Keeps API calls under the hourly limit while the catalog
+#    grows over several days. (Keywords come from scripts/keywords.txt.)
+& $NODE 'scripts/fetch-products.mjs' '--rotate' '14' 2>&1 | ForEach-Object { Log $_ }
 if ($LASTEXITCODE -ne 0) { Log 'fetch failed -> abort (site keeps existing data)'; exit 1 }
 
 # 2. Rebuild category pages + sitemap.
@@ -34,7 +36,7 @@ if ($LASTEXITCODE -ne 0) { Log 'fetch failed -> abort (site keeps existing data)
 if ($LASTEXITCODE -ne 0) { Log 'build-pages failed -> abort'; exit 1 }
 
 # 3. Commit only if something changed.
-git add data/products.json c sitemap.xml 2>&1 | Out-Null
+git add data c sitemap.xml 2>&1 | Out-Null
 git diff --cached --quiet
 if ($LASTEXITCODE -eq 0) { Log 'no changes -> skip push'; exit 0 }
 
