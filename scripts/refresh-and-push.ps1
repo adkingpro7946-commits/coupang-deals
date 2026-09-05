@@ -15,7 +15,7 @@ $ROOT = Split-Path -Parent $PSScriptRoot
 Set-Location $ROOT
 
 $NODE = 'C:\Program Files\nodejs\node.exe'
-$SITE = 'https://adkingpro7946-commits.github.io/coupang-deals'
+$SITE = 'https://kkuldeal.com'
 $LOG  = Join-Path $ROOT 'scripts\refresh.log'
 
 function Log($msg) {

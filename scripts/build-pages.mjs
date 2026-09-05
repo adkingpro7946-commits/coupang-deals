@@ -24,7 +24,8 @@ function arg(name, fallback = '') {
   return i !== -1 && process.argv[i + 1] ? process.argv[i + 1] : fallback;
 }
 
-const BASE = (process.env.SITE_URL || arg('base', 'https://example.com')).replace(/\/$/, '');
+// 기본값을 실제 도메인으로 둔다. --base 없이 돌렸을 때 example.com 주소가 박히는 사고를 막는다.
+const BASE = (process.env.SITE_URL || arg('base', 'https://kkuldeal.com')).replace(/\/$/, '');
 
 const esc = (s) =>
   String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -67,7 +68,12 @@ const FOOTER_NAV = `<nav class="footer-links" aria-label="사이트 정보">
     <a href="${BASE}/info/privacy.html">개인정보처리방침</a>
   </nav>`;
 
-function cardHtml(p) {
+// i 는 목록에서의 순서. 첫 화면에 보이는 이미지에까지 lazy 를 걸면 LCP 가 오히려 늦어진다.
+function cardHtml(p, i = 0) {
+  const eager = i < 4;
+  const loadAttr = eager
+    ? ` decoding="async"${i === 0 ? ' fetchpriority="high"' : ''}`
+    : ' loading="lazy" decoding="async"';
   const discount = p.discountRate > 0 ? `<span class="badge-discount">${p.discountRate}%</span>` : '';
   const drop =
     p.priceDrop?.from > p.price
@@ -81,7 +87,7 @@ function cardHtml(p) {
 
   return `<a class="card" href="${esc(p.url)}" target="_blank" rel="noopener noreferrer sponsored">
   <div class="thumb">
-    <img src="${esc(p.image)}"${srcsetFor(p.image)} alt="${esc(p.name)}" loading="lazy" decoding="async" width="300" height="300">
+    <img src="${esc(p.image)}"${srcsetFor(p.image)} alt="${esc(p.name)}"${loadAttr} width="300" height="300">
     ${discount}${drop}
   </div>
   <div class="body">
@@ -204,10 +210,12 @@ function hubPage(byCat) {
   };
 
   const links = cats
-    .map(([c, list]) => {
+    .map(([c, list], i) => {
       const enc = encodeURIComponent(fileFor(c));
       const top = list.find((p) => p.image && !p.image.startsWith('data:'));
-      const thumb = top ? `<img src="${esc(top.image)}" alt="" loading="lazy" width="64" height="64">` : '<span class="hub-emoji">🛍️</span>';
+      // 첫 줄에 보이는 썸네일은 lazy 를 빼야 첫 화면이 빨리 그려진다.
+      const lazy = i < 4 ? '' : ' loading="lazy"';
+      const thumb = top ? `<img src="${esc(top.image)}" alt=""${lazy} width="64" height="64">` : '<span class="hub-emoji">🛍️</span>';
       return `<a class="hub-card" href="./${enc}.html">
       ${thumb}
       <span class="hub-name">${esc(c)}</span>
